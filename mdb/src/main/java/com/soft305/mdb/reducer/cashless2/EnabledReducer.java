@@ -1,4 +1,4 @@
-package com.soft305.mdb.reducer;
+package com.soft305.mdb.reducer.cashless2;
 
 import android.util.Log;
 
@@ -10,10 +10,10 @@ import com.soft305.mdb.util.ByteUtil;
 import com.soft305.mdb.util.StringUtil;
 
 
-public class VendingReducer extends Reducer<Cashless2> {
+public class EnabledReducer extends Reducer<Cashless2> {
 
 
-    public VendingReducer(Cashless2 mdbCashless) {
+    public EnabledReducer(Cashless2 mdbCashless) {
         super(mdbCashless);
     }
 
@@ -27,7 +27,7 @@ public class VendingReducer extends Reducer<Cashless2> {
         return true;
     }
 
-    // todo: put this method into inputVmc.
+    // todo: replace
     public void onDataReceived(VmcInput input) {
 
 
