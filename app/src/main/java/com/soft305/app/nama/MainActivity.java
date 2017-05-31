@@ -10,14 +10,20 @@ import android.widget.TextView;
 import com.soft305.mdb.log.LoggerListener;
 import com.soft305.mdb.MdbManager;
 import com.soft305.socket.Socket;
+import com.soft305.socket.ble.BleManager;
 import com.soft305.socket.usb.UsbAoaManager;
 
 
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
+
+
     private UsbAoaManager mUsbAoaManager;
-    private Socket mSocket;
+    private Socket<Socket.UsbAoaListener> mAoaSocket;
+
+    private BleManager mBleManager;
+    private Socket<Socket.BleListener> mBleSocket;
 
     private MdbManager mMdbManager;
     private TextView mTxtMdbBus;
@@ -27,6 +33,9 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        //**********************************************
+        //****************** USB AOA *******************
+        //**********************************************
         mUsbAoaManager = new UsbAoaManager(this);
         mUsbAoaManager.probe(new UsbAoaManager.Listener() {
             @Override
@@ -35,18 +44,16 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onSocketCreated(Socket socket) {
-                mSocket = socket;
+            public void onSocketCreated(Socket<Socket.UsbAoaListener> socket) {
+                mAoaSocket = socket;
 
                 //Here is the connection with the MDB Library
-                mMdbManager = new MdbManager(mSocket);
+                mMdbManager = new MdbManager(mAoaSocket);
                 mMdbManager.setLoggerListener(mLoggerListener);
                 mMdbManager.start();
 
             }
         });
-
-
 
         findViewById(R.id.btn_begin_session).setOnClickListener(new View.OnClickListener() {
             @Override
@@ -64,6 +71,12 @@ public class MainActivity extends AppCompatActivity {
 
         mTxtMdbBus = (TextView) findViewById(R.id.txt_mdb_bus);
         mTxtMdbBus.setMovementMethod(new ScrollingMovementMethod());
+
+
+        //**********************************************
+        //******************** BLE *********************
+        //**********************************************
+        mBleManager = new BleManager(this);
 
     }
 

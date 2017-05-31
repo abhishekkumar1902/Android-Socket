@@ -5,20 +5,12 @@ import android.support.annotation.NonNull;
 /**
  * Created by pablo on 4/28/17.
  */
-public abstract class Socket {
+public abstract class Socket<T extends Socket.Listener> {
 
 
     public Socket() {}
 
-    public abstract void open(@NonNull Listener listener);
-
-    public abstract void openBt(@NonNull BtListener listener);
-
-    public abstract void openBle(@NonNull BleListener listener);
-
-    public abstract void openUsbHost(@NonNull UsbHostListener listener);
-
-    public abstract void openUsbAoa(@NonNull UsbAoaListener listener);
+    public abstract void open(@NonNull T listener);
 
     public abstract void close();
 
@@ -50,7 +42,9 @@ public abstract class Socket {
 
     public static class BtErrorInfo {}
 
-    public static class BleErrorInfo {}
+    public static class BleErrorInfo {
+        public String info;
+    }
 
     public static class UsbHostErrorInfo {}
 

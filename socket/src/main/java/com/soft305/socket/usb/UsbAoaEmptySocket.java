@@ -2,6 +2,7 @@ package com.soft305.socket.usb;
 
 import android.hardware.usb.UsbAccessory;
 import android.support.annotation.NonNull;
+import com.soft305.socket.Socket;
 
 
 /* package */ class UsbAoaEmptySocket extends UsbAoaSocket {
@@ -12,27 +13,7 @@ import android.support.annotation.NonNull;
     }
 
     @Override
-    public void open(@NonNull Listener listener) {
-
-    }
-
-    @Override
-    public void openBt(@NonNull BtListener listener) {
-
-    }
-
-    @Override
-    public void openBle(@NonNull BleListener listener) {
-
-    }
-
-    @Override
-    public void openUsbHost(@NonNull UsbHostListener listener) {
-
-    }
-
-    @Override
-    public void openUsbAoa(@NonNull UsbAoaListener listener) {
+    public void open(@NonNull Socket.UsbAoaListener listener) {
 
     }
 

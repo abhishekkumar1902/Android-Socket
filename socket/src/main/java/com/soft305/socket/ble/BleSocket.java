@@ -1,24 +1,20 @@
-package com.soft305.socket.usb;
+package com.soft305.socket.ble;
 
-import android.hardware.usb.UsbAccessory;
+import android.bluetooth.BluetoothDevice;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.ParcelFileDescriptor;
 import android.support.annotation.NonNull;
-import android.util.Log;
 import com.soft305.socket.Socket;
-import java.io.FileDescriptor;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-/* package */ class UsbAoaSocket extends Socket<Socket.UsbAoaListener> {
+/* package */ class BleSocket extends Socket<Socket.BleListener> {
 
-    private static final String TAG = "UsbAoaSocket";
-    private UsbAoaManager mAoaManager;
-    private UsbAccessory mAccessory;
+    private static final String TAG = "BleSocket";
+    private BleManager mBleManager;
+    private BluetoothDevice mBleDevice;
     private UsbAoaListener mListener;
     private ParcelFileDescriptor mFileDescriptor;
     private InputStream mInputStream;
@@ -30,9 +26,9 @@ import java.io.OutputStream;
     private boolean mIsConnected;
     private boolean isError;
 
-    /* package */ UsbAoaSocket(@NonNull UsbAoaManager aoaManager,@NonNull  UsbAccessory accessory) {
-        mAoaManager = aoaManager;
-        mAccessory = accessory;
+    /* package */ BleSocket(@NonNull BleManager bleManager, @NonNull BluetoothDevice bleDevice) {
+        mBleManager = bleManager;
+        mBleDevice = bleDevice;
     }
 
     public void setPendingPermission(boolean pendingPermission) {
@@ -44,38 +40,9 @@ import java.io.OutputStream;
     }
 
     @Override
-    public void open(@NonNull Socket.UsbAoaListener listener) {
+    public void open(@NonNull Socket.BleListener listener) {
 
-        mListener = listener;
 
-        if (mIsConnected) {
-            mListener.onOpen();
-            return;
-        }
-
-        mFileDescriptor = mAoaManager.provideManager().openAccessory(mAccessory);
-
-        if (mFileDescriptor != null) {
-            FileDescriptor fd = mFileDescriptor.getFileDescriptor();
-            mOutputStream = new FileOutputStream(fd);
-            mInputStream = new FileInputStream(fd);
-
-            // Prepare handler threads
-            mReceiverThread = new ReceiverThread("UsbAoaSocket.ReaderThread");
-            mReceiverThread.start();
-
-            mSenderThread = new SenderThread("UsbAoaSocket.SenderThread");
-            mSenderThread.start();
-
-            mIsConnected = true;
-            mListener.onOpen();
-
-        } else {
-            mIsConnected = false;
-            UsbAoaErrorInfo errorInfo = new UsbAoaErrorInfo();
-            errorInfo.info = "Open Accessory Fail";
-            mListener.onError(errorInfo);
-        }
 
     }
 
@@ -109,7 +76,7 @@ import java.io.OutputStream;
         if (!isError) {
             isError = true;
             close();
-            mAoaManager.disposeAoaSocket(this);
+
         }
     }
 
@@ -236,8 +203,8 @@ import java.io.OutputStream;
         handleError();
     }
 
-    /* package */ UsbAccessory getAccessory() {
-        return mAccessory;
+    /* package */ BluetoothDevice getBleDevice() {
+        return mBleDevice;
     }
 
     // endregion

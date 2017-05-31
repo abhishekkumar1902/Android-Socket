@@ -22,18 +22,17 @@ public class UsbAoaManager {
     private Context mContext;
     private UsbManager mUsbManager;
     private Listener mListener;
-    //private PendingIntent mPermissionIntent;
     private Map<UsbAccessory, UsbAoaSocket> mAccessorySocketMap;
     private UsbAoaSocket mCurSocket;
 
 
     public UsbAoaManager (Context context) {
         mContext = context;
-        mUsbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
         mAccessorySocketMap = new ArrayMap<>();
     }
 
     public void probe(Listener listener) {
+        mUsbManager = (UsbManager) mContext.getSystemService(Context.USB_SERVICE);
         mListener = listener;
         registerReceiver();
         checkAttachedAccessories();
@@ -114,7 +113,7 @@ public class UsbAoaManager {
 
     public interface Listener {
         void onSelectUsbAoa(UsbAccessory[] accessoryArray);
-        void onSocketCreated(Socket socket);
+        void onSocketCreated(Socket<Socket.UsbAoaListener> socket);
     }
 
     private final BroadcastReceiver mUsbAoaReceiver = new BroadcastReceiver() {

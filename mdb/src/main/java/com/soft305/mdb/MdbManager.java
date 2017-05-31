@@ -22,7 +22,7 @@ public class MdbManager {
 
     private static final String TAG = "MdbManager";
 
-    private Socket mSocket;
+    private Socket<Socket.UsbAoaListener> mSocket;
     private boolean isSocketOpen;
     private VmcInput mVmcInput;
     private MdbPeripheral mCurPeripheral;
@@ -32,7 +32,7 @@ public class MdbManager {
     private LoggerListener mLoggerListener;
 
 
-    public MdbManager(Socket socket) {
+    public MdbManager(Socket<Socket.UsbAoaListener> socket) {
         mSocket = socket;
 
         mEnumMdbPeripheralMap = new EnumMap<>(Peripheral.class);
@@ -44,7 +44,7 @@ public class MdbManager {
     }
 
     public void start() {
-        mSocket.openUsbAoa(mUsbAoaListener);
+        mSocket.open(mUsbAoaListener);
     }
 
     /**
