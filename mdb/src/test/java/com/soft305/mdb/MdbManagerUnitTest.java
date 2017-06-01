@@ -64,8 +64,8 @@ public class MdbManagerUnitTest {
     public void vmcSendGarbageTest() {
 
 
-        Socket socketMock = Mockito.mock(Socket.class);
-        Mockito.doNothing().when(socketMock).openUsbAoa(dummyAoaListener);
+        Socket<Socket.UsbAoaListener> socketMock = Mockito.mock(Socket.class);
+        Mockito.doNothing().when(socketMock).open(dummyAoaListener);
 
         MdbManager mdbManager = new MdbManager(socketMock);
         mdbManager.start();
@@ -88,8 +88,8 @@ public class MdbManagerUnitTest {
     public void vmcResetAllDevicesTest() {
 
 
-        Socket socketMock = Mockito.mock(Socket.class);
-        Mockito.doNothing().when(socketMock).openUsbAoa(dummyAoaListener);
+        Socket<Socket.UsbAoaListener> socketMock = Mockito.mock(Socket.class);
+        Mockito.doNothing().when(socketMock).open(dummyAoaListener);
 
         MdbManager mdbManager = new MdbManager(socketMock);
         mdbManager.start();

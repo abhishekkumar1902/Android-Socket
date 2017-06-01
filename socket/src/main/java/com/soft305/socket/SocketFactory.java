@@ -1,7 +1,5 @@
 package com.soft305.socket;
 
-import com.soft305.socket.usb.UsbAoaManager;
-
 /**
  * Created by pablo on 4/28/17.
  */

@@ -1,4 +1,4 @@
-package com.soft305.socket.usb;
+package com.soft305.socket.usbaoa;
 
 import android.hardware.usb.UsbAccessory;
 import android.support.annotation.NonNull;

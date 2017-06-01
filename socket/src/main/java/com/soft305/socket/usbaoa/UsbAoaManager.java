@@ -1,4 +1,4 @@
-package com.soft305.socket.usb;
+package com.soft305.socket.usbaoa;
 
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
@@ -18,7 +18,7 @@ import java.util.Map;
 public class UsbAoaManager {
 
     private static final String TAG = "UsbAoaManager";
-    private static final String ACTION_USB_PERMISSION = "com.soft305.socket.action.USB_PERMISSION";
+    private static final String ACTION_USB_PERMISSION = "com.soft305.socket.action.USB_ACCESSORY_PERMISSION";
     private Context mContext;
     private UsbManager mUsbManager;
     private Listener mListener;
@@ -139,18 +139,13 @@ public class UsbAoaManager {
                 }
 
             } else if (UsbManager.ACTION_USB_ACCESSORY_ATTACHED.equals(action)) {
-                UsbAccessory accessory = intent.getParcelableExtra(UsbManager.EXTRA_ACCESSORY);
-                if (accessory != null) {
-                    mListener.onSelectUsbAoa(new UsbAccessory[]{accessory});
-                }
+                checkAttachedAccessories();
 
             } else if (UsbManager.ACTION_USB_ACCESSORY_DETACHED.equals(action)) {
                 UsbAccessory accessory = intent.getParcelableExtra(UsbManager.EXTRA_ACCESSORY);
                 if (accessory != null && mAccessorySocketMap.containsKey(accessory)) {
                     UsbAoaSocket aoaSocket = mAccessorySocketMap.get(accessory);
-                    if (aoaSocket != null) {
-                        aoaSocket.handleAccessoryDetach();
-                    }
+                    aoaSocket.handleAccessoryDetach();
                 }
             }
 

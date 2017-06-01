@@ -11,7 +11,7 @@ import com.soft305.mdb.log.LoggerListener;
 import com.soft305.mdb.MdbManager;
 import com.soft305.socket.Socket;
 import com.soft305.socket.ble.BleManager;
-import com.soft305.socket.usb.UsbAoaManager;
+import com.soft305.socket.usbaoa.UsbAoaManager;
 
 
 public class MainActivity extends AppCompatActivity {

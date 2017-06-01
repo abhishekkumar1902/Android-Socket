@@ -1,26 +1,22 @@
-package com.soft305.socket.usb;
+package com.soft305.socket.usbhost;
 
-import android.hardware.usb.UsbAccessory;
+import android.hardware.usb.UsbDevice;
+import android.hardware.usb.UsbDeviceConnection;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.os.ParcelFileDescriptor;
 import android.support.annotation.NonNull;
-import android.util.Log;
 import com.soft305.socket.Socket;
-import java.io.FileDescriptor;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-/* package */ class UsbAoaSocket extends Socket<Socket.UsbAoaListener> {
+/* package */ class UsbHostSocket extends Socket<Socket.UsbHostListener> {
 
-    private static final String TAG = "UsbAoaSocket";
-    private UsbAoaManager mAoaManager;
-    private UsbAccessory mAccessory;
-    private UsbAoaListener mListener;
-    private ParcelFileDescriptor mFileDescriptor;
+    private static final String TAG = "UsbHostSocket";
+    private UsbHostManager mUsbHostManager;
+    private UsbDevice mUsbDevice;
+    private UsbHostListener mListener;
+    private UsbDeviceConnection mDeviceConnection;
     private InputStream mInputStream;
     private OutputStream mOutputStream;
     private ReceiverThread mReceiverThread;
@@ -30,9 +26,11 @@ import java.io.OutputStream;
     private boolean mIsConnected;
     private boolean isError;
 
-    /* package */ UsbAoaSocket(@NonNull UsbAoaManager aoaManager,@NonNull  UsbAccessory accessory) {
-        mAoaManager = aoaManager;
-        mAccessory = accessory;
+    /* package */ UsbHostSocket(@NonNull UsbHostManager usbHostManager
+            , @NonNull UsbDevice usbDevice) {
+
+        mUsbHostManager = usbHostManager;
+        mUsbDevice = usbDevice;
     }
 
     public void setPendingPermission(boolean pendingPermission) {
@@ -44,7 +42,7 @@ import java.io.OutputStream;
     }
 
     @Override
-    public void open(@NonNull Socket.UsbAoaListener listener) {
+    public void open(@NonNull UsbHostListener listener) {
 
         mListener = listener;
 
@@ -53,9 +51,15 @@ import java.io.OutputStream;
             return;
         }
 
-        mFileDescriptor = mAoaManager.provideManager().openAccessory(mAccessory);
+        mDeviceConnection = mUsbHostManager.provideManager().openDevice(mUsbDevice);
 
-        if (mFileDescriptor != null) {
+        if (mDeviceConnection == null) {
+            // Return if the connection could not be opened
+            return;
+        }
+
+        mIsConnected = true;
+        /*if (mFileDescriptor != null) {
             FileDescriptor fd = mFileDescriptor.getFileDescriptor();
             mOutputStream = new FileOutputStream(fd);
             mInputStream = new FileInputStream(fd);
@@ -75,24 +79,17 @@ import java.io.OutputStream;
             UsbAoaErrorInfo errorInfo = new UsbAoaErrorInfo();
             errorInfo.info = "Open Accessory Fail";
             mListener.onError(errorInfo);
-        }
+        }*/
 
     }
 
     @Override
     public void close() {
-        try {
-
-            if (mIsConnected) {
-                mIsConnected = false;
-                mFileDescriptor.close();
-                mReceiverThread.close();
-                mSenderThread.send(new byte[]{'c','l','o','s','e'});
-                mSenderThread.close();
-            }
-
-        } catch (IOException e) {
-            e.printStackTrace();
+        if (mIsConnected) {
+            mIsConnected = false;
+            mReceiverThread.close();
+            mSenderThread.send(new byte[]{'c','l','o','s','e'});
+            mSenderThread.close();
         }
     }
 
@@ -109,7 +106,7 @@ import java.io.OutputStream;
         if (!isError) {
             isError = true;
             close();
-            mAoaManager.disposeAoaSocket(this);
+            //mUsbHosManager.disposeUsbHostSocket(this);
         }
     }
 
@@ -232,12 +229,12 @@ import java.io.OutputStream;
 
     // region: package private
 
-    /* package */ void handleAccessoryDetach() {
+    /* package */ void handleUsbDeviceDetach() {
         handleError();
     }
 
-    /* package */ UsbAccessory getAccessory() {
-        return mAccessory;
+    /* package */ UsbDevice getUsbDevice() {
+        return mUsbDevice;
     }
 
     // endregion
