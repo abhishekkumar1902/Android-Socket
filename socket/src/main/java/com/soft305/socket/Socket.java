@@ -46,7 +46,9 @@ public abstract class Socket<T extends Socket.Listener> {
         public String info;
     }
 
-    public static class UsbHostErrorInfo {}
+    public static class UsbHostErrorInfo {
+        public String info;
+    }
 
     public static class UsbAoaErrorInfo {
         public String info;

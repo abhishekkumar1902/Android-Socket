@@ -2,13 +2,16 @@ package com.soft305.socket.usbhost;
 
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
+import android.hardware.usb.UsbEndpoint;
+import android.hardware.usb.UsbInterface;
+import android.hardware.usb.UsbRequest;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.support.annotation.NonNull;
 import com.soft305.socket.Socket;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /* package */ class UsbHostSocket extends Socket<Socket.UsbHostListener> {
 
@@ -17,11 +20,17 @@ import java.io.OutputStream;
     private UsbDevice mUsbDevice;
     private UsbHostListener mListener;
     private UsbDeviceConnection mDeviceConnection;
-    private InputStream mInputStream;
-    private OutputStream mOutputStream;
+    private UsbInterface mUsbInterface;
+    private UsbEndpoint mReadEndPoint;
+    private UsbEndpoint mWriteEndPoint;
     private ReceiverThread mReceiverThread;
     private SenderThread mSenderThread;
-
+    private RequestRouterThread mRequestRouterThread;
+    private BlockingQueue<UsbRequest> mWriteRequestQueue = new LinkedBlockingQueue<>();
+    private UsbRequest mReadRequest = new UsbRequest();
+    private ByteBuffer mInputByteBuffer;
+    private Object mReadRequestMonitor = new Object();
+    private boolean mIsReadInQueue;
     private boolean mIsPendingPermission;
     private boolean mIsConnected;
     private boolean isError;
@@ -55,31 +64,52 @@ import java.io.OutputStream;
 
         if (mDeviceConnection == null) {
             // Return if the connection could not be opened
+            UsbHostErrorInfo errorInfo = new UsbHostErrorInfo();
+            errorInfo.info = "Open Device Fail";
+            mListener.onError(errorInfo);
             return;
         }
 
-        mIsConnected = true;
-        /*if (mFileDescriptor != null) {
-            FileDescriptor fd = mFileDescriptor.getFileDescriptor();
-            mOutputStream = new FileOutputStream(fd);
-            mInputStream = new FileInputStream(fd);
+        UsbDeviceConfiguration configuration
+                = mUsbHostManager.provideConfigurationForDevice(mUsbDevice);
 
-            // Prepare handler threads
-            mReceiverThread = new ReceiverThread("UsbAoaSocket.ReaderThread");
-            mReceiverThread.start();
-
-            mSenderThread = new SenderThread("UsbAoaSocket.SenderThread");
-            mSenderThread.start();
-
-            mIsConnected = true;
-            mListener.onOpen();
-
-        } else {
-            mIsConnected = false;
-            UsbAoaErrorInfo errorInfo = new UsbAoaErrorInfo();
-            errorInfo.info = "Open Accessory Fail";
+        if (configuration == null || configuration.deviceInterface == null
+                || configuration.readEndPoint == null) {
+            // Return if there is no Configuration or Interface or in EndPoint provided
+            UsbHostErrorInfo errorInfo = new UsbHostErrorInfo();
+            errorInfo.info = "No configuration Provided";
             mListener.onError(errorInfo);
-        }*/
+            return;
+        }
+
+        mUsbInterface = configuration.deviceInterface;
+        mReadEndPoint = configuration.readEndPoint;
+        mWriteEndPoint = configuration.writeEndPoint;
+
+
+        if(!(mDeviceConnection.claimInterface(mUsbInterface, true))) {
+            // Return if could not claim the specified interface
+            UsbHostErrorInfo errorInfo = new UsbHostErrorInfo();
+            errorInfo.info = "Could not claim the specified interface";
+            mListener.onError(errorInfo);
+            return;
+        }
+
+        mReceiverThread = new ReceiverThread("UsbHostSocket.ReaderThread");
+        mReceiverThread.start();
+
+        mRequestRouterThread = new RequestRouterThread("UsbHostSocket.RequestRouterThread");
+        mRequestRouterThread.start();
+
+        mIsConnected = true;
+
+
+        if (mWriteEndPoint != null) {
+            mSenderThread = new SenderThread("UsbHostSocket.SenderThread");
+            mSenderThread.start();
+        }
+
+        mListener.onOpen();
 
     }
 
@@ -90,6 +120,8 @@ import java.io.OutputStream;
             mReceiverThread.close();
             mSenderThread.send(new byte[]{'c','l','o','s','e'});
             mSenderThread.close();
+            // TODO: send this after receiving the close response
+            //mDeviceConnection.releaseInterface(mUsbInterface);
         }
     }
 
@@ -134,27 +166,27 @@ import java.io.OutputStream;
         private Runnable mRunnable = new Runnable() {
             @Override
             public void run() {
-                int length = 0;
-                byte[] reusedBuffer = new byte[MAX_BUF_SIZE];
-                byte[] inboundData;
+
                 mThreadRunning = true;
 
                 // Receiving loop
                 while (mThreadRunning) {
                     try {
 
-                        length = mInputStream.read(reusedBuffer);
+                        synchronized (mReadRequestMonitor) {
+                            mInputByteBuffer = ByteBuffer.allocate(MAX_BUF_SIZE);
+                            mReadRequest.initialize(mDeviceConnection, mReadEndPoint);
+                            mReadRequest.queue(mInputByteBuffer, mInputByteBuffer.capacity());
 
-                        if (length >= 0) {
-                            inboundData = new byte[length];
-                            System.arraycopy(reusedBuffer, 0, inboundData, 0, length);
-                            handleDataReceived(inboundData);
+                            mIsReadInQueue = true;
 
-                        } else {
-                            handleError();
+                            while (mIsReadInQueue) {
+                                // Semaphore for reading, will be signaled from the Router Thread
+                                wait();
+                            }
                         }
 
-                    } catch (IOException e) {
+                    } catch (Exception e) {
                         e.printStackTrace();
                         handleError();
                     }
@@ -163,11 +195,10 @@ import java.io.OutputStream;
                 // Before leaving the Thread close the inputStream.
                 try {
 
-                    mInputStream.close();
                     mHandler.removeCallbacksAndMessages(null);
                     mHandler.getLooper().quit();
 
-                } catch (IOException e) {
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
 
@@ -181,7 +212,6 @@ import java.io.OutputStream;
         private static final int MAX_BUF_SIZE = 1024;
         private Handler mHandler;
         private boolean mThreadStarted;
-
 
         public SenderThread(String name) {
             super(name);
@@ -201,10 +231,14 @@ import java.io.OutputStream;
                     try {
 
                         if (mThreadStarted) {
-                            mOutputStream.write(outboundData);
+                            UsbRequest usbRequest = new UsbRequest();
+                            usbRequest.initialize(mDeviceConnection, mWriteEndPoint);
+                            ByteBuffer byteBuffer = ByteBuffer.wrap(outboundData);
+                            usbRequest.queue(byteBuffer, byteBuffer.position());
+                            registerRequest(usbRequest);
                         }
 
-                    } catch (IOException e) {
+                    } catch (Exception e) {
                         e.printStackTrace();
                         handleError();
                     }
@@ -213,18 +247,85 @@ import java.io.OutputStream;
         }
 
         public void close() {
-            try {
+            mThreadStarted = false;
+            //mOutputStream.close();
+            mHandler.removeCallbacksAndMessages(null);
+            mHandler.getLooper().quit();
 
-                mThreadStarted = false;
-                mOutputStream.close();
-                mHandler.removeCallbacksAndMessages(null);
-                mHandler.getLooper().quit();
-
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         }
 
+    }
+
+    class RequestRouterThread extends HandlerThread {
+
+        private Handler mHandler;
+        private boolean mThreadStarted;
+        private boolean mThreadRunning;
+
+        public RequestRouterThread(String name) {
+            super(name);
+        }
+
+        @Override
+        public synchronized void start() {
+            super.start();
+            mHandler = new Handler(getLooper());
+            mThreadStarted = true;
+
+            mHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    while (mThreadRunning) {
+                        try {
+
+                            UsbRequest comingRequest = mDeviceConnection.requestWait();
+
+                            if (comingRequest != null && isWriteRequest(comingRequest)) {
+                                // Ignore Write requests, only attend reading ones
+                                comingRequest.close();
+                                mWriteRequestQueue.remove(comingRequest);
+
+                            } else if (comingRequest != null && comingRequest.equals(mReadRequest)){
+
+                                mListener.onRead(mInputByteBuffer.array());
+
+                                // Let the reader thread knows it can post another usb request
+                                mIsReadInQueue = false;
+                                synchronized (mReadRequestMonitor) {
+                                    mReadRequestMonitor.notifyAll();
+                                }
+
+                            }
+
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            handleError();
+                        }
+                    }
+                }
+            });
+
+        }
+
+        public void close() {
+            mThreadStarted = false;
+            mHandler.removeCallbacksAndMessages(null);
+            mHandler.getLooper().quit();
+        }
+
+    }
+
+    private void registerRequest(UsbRequest usbRequest) {
+        mWriteRequestQueue.offer(usbRequest);
+    }
+
+    private boolean isWriteRequest(UsbRequest comingRequest) {
+        for (UsbRequest usbRequest : mWriteRequestQueue) {
+            if (usbRequest.equals(comingRequest)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // region: package private

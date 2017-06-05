@@ -15,6 +15,7 @@ import java.util.Map;
 /**
  * Created by pablo on 4/28/17.
  */
+//TODO(pablo) : Make this class to handle multiple configurations for one device.
 public class UsbHostManager {
 
     private static final String TAG = "UsbHostManager";
@@ -105,6 +106,10 @@ public class UsbHostManager {
         mUsbHostSocketMap.remove(usbHostSocket.getUsbDevice());
     }
 
+    /* package */ UsbDeviceConfiguration provideConfigurationForDevice(UsbDevice usbDevice) {
+        return mListener.onProvideDeviceConfiguration(usbDevice);
+    }
+
     /* package */ UsbManager provideManager() {
         return mUsbManager;
     }
@@ -115,6 +120,7 @@ public class UsbHostManager {
     public interface Listener {
         void onSelectUsbDevice(Map<String,UsbDevice> usbDeviceMap);
         void onSocketCreated(Socket<Socket.UsbHostListener> socket);
+        UsbDeviceConfiguration onProvideDeviceConfiguration(UsbDevice usbDevice);
     }
 
     private final BroadcastReceiver mUsbHostReceiver = new BroadcastReceiver() {
